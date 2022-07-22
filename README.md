@@ -1,7 +1,7 @@
 # cohobj
 Some useful tools for dealing with objects in Large Eddy Simulation data.
 
-# See https://paraconuk.github.io/cohobj/ for documentation.
+[//]: # See https://paraconuk.github.io/cohobj/ for documentation.
 
 Users should pip install to a suitable environment using
 

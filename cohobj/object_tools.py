@@ -32,6 +32,7 @@ def label_3D_cyclic(mask) :
     (nx, ny, nz) = mask.shape
     labels, nobjects = ndimage.label(mask)
     labels -=1
+    
     def relabel(labs, nobjs, i,j) :
         lj = (labs == j)
         labs[lj] = i
@@ -50,16 +51,21 @@ def label_3D_cyclic(mask) :
             # grid points corresponding to label i
             posi = np.where(labs == i)
             posid = posi[dim]
+            # Does object i have any points on the required border?
             if minflag :
-                test1 = (np.min(posid) == 0)
+                obj_i_on_border = (np.min(posid) == 0)
                 border = '0'
             else:
-                test1 = (np.max(posid) == (n-1))
+                obj_i_on_border = (np.max(posid) == (n-1))
                 border = f"n{['x','y'][dim]}-1"
-            if test1 :
+                
+            if obj_i_on_border :
                 if debug_label :
-                    print('Object {:03d} on {}={} border?'.\
-                          format(i,['x','y'][dim],border))
+                    print(f"Object {i:03d} on {['x','y'][dim]}={border} border?")
+                        
+                # If object i does have any points on the required border
+                # Loop over remaining objects to see if they have points
+                # on the opposite border
                 j = i+1
                 while j < nobjs :
                     # grid points corresponding to label j
@@ -67,29 +73,36 @@ def label_3D_cyclic(mask) :
                     posjd = posj[dim]
 
                     if minflag :
-                        test2 = (np.max(posjd) == (n-1))
+                        obj_j_on_opposite_border = (np.max(posjd) == (n-1))
                         border = f"n{['x','y'][dim]}-1"
                     else:
-                        test2 = (np.min(posjd) == 0)
+                        obj_j_on_opposite_border = (np.min(posjd) == 0)
                         border = '0'
 
-                    if test2 :
-                        if debug_label :
-                            print('Match Object {:03d} on {}={} border?'\
-                                  .format(j,['x','y'][dim],border))
+                    if obj_j_on_opposite_border :
+                        # If object i does have any points on the 
+                        # opposite border, then do they overlap in the
+                        # other horizontal coordinate space?
 
+                        if debug_label :
+                            print(f"Match Object {j:03d} on {['x','y'][dim]}={border} border?")
+
+                        # Select out just the border points for object i and j.
                         if minflag :
                             ilist = np.where(posid == 0)
                             jlist = np.where(posjd == (n-1))
                         else :
                             ilist = np.where(posid == (n-1))
                             jlist = np.where(posjd == 0)
-
+                                                        
+                        # x or y intersection
                         int1 = np.intersect1d(posi[1-dim][ilist],
                                               posj[1-dim][jlist])
                         # z-intersection
                         int2 = np.intersect1d(posi[2][ilist],
                                               posj[2][jlist])
+                        # If any overlab, label object j as i and
+                        # relabel the rest.
                         if np.size(int1)>0 and np.size(int2)>0 :
                             if debug_label :
                                 print('Yes!',i,j)
@@ -97,7 +110,7 @@ def label_3D_cyclic(mask) :
                     j += 1
             i += 1
         return labs, nobjs
-
+    # Look at 4 boundary zones, i in [0, nx), j in [0, ny).
     labels, nobjects = find_objects_at_edge(True,  0, nx, labels, nobjects)
     labels, nobjects = find_objects_at_edge(False, 0, nx, labels, nobjects)
     labels, nobjects = find_objects_at_edge(True,  1, ny, labels, nobjects)
@@ -107,40 +120,10 @@ def label_3D_cyclic(mask) :
                           name='object_labels', 
                           coords=mask.coords, 
                           dims=mask.dims,
-                          attrs={'nobjects':nobjects})
+                          attrs={'nobjects':nobjects},
+                          )
 
     return labels
-
-def mask_to_positions(mask:xr.DataArray)->xr.Dataset:
-    """
-    Convert 3D logical mask to coordinate positions. 
-
-    Parameters
-    ----------
-    mask : xr.DataArray
-        Evaluates True at required positions.
-
-    Returns
-    -------
-    positions : xr.Dataset
-        Contains data variables "x", "y", "z".
-        Coordinates "pos_number" and any others (e.g. "time") in mask.
-
-    """    
-    poi = (
-        mask.where(mask, drop=True)
-            .stack(pos_number=("x", "y", "z"))
-            .dropna(dim="pos_number")
-    )
-    # now we'll turn this 1D dataset where (x, y, z) are coordinates into 
-    # one where they are variables instead
-    positions = (
-        poi.reset_index("pos_number")
-           .assign_coords(pos_number=np.arange(poi.pos_number.size))                       
-           .reset_coords(["x", "y", "z"])[["x", "y", "z"]]
-    )
-    
-    return positions
 
 def get_object_labels(mask:xr.DataArray)->xr.DataArray:
     """
@@ -176,11 +159,11 @@ def unsplit_objects(ds_traj, Lx, Ly) :
     """
     Unsplit a set of objects at a set of times using unsplit_object on each.
 
-    Args:
-        trajectory     : Array[nt, np, 3] of trajectory points, with nt \
-                         times and np points.
-        labels         : labels of trajectory points.
-        nx,ny   : number of grid points in x and y directions.
+    Parameters
+    ----------
+        ds_traj     : xarray dataset
+            Trajectory points "x", "y", and "z" and "object_label".
+        Lx,Ly   : Domain size in x and y directions.
 
     Returns
     -------
@@ -235,6 +218,73 @@ def unsplit_objects(ds_traj, Lx, Ly) :
                     
         return tr
     
-    ds_traj =ds_traj.groupby("object_label").map(_unsplit_object)
+    ds_traj = ds_traj.groupby("object_label").map(_unsplit_object)
         
     return ds_traj
+
+def get_bounding_boxes(ds_traj, use_mask=False):
+    """
+    Find x,y,z min and max for objects in ds_traj.
+
+    Parameters
+    ----------
+    ds_traj : xarray.Dataset
+        Trajectory points "x", "y", "z" 
+        with additional non-dim coord "object_label" to groupby objects.
+        and optional "obj_mask" boolean data_var.
+    use_mask : bool, optional 
+        If true, only use points masked True by "obj_mask". 
+        The default is False.
+
+    Returns
+    -------
+    ds_out : xarray.Dataset
+        Contains {x/y/z}_{min/max/mean}
+
+    """
+    
+    if use_mask:
+        ds = ds_traj[["x", "y", "z", "object_label"]].where(ds_traj["obj_mask"]).groupby("object_label")
+    else:    
+        ds = ds_traj[["x", "y", "z", "object_label"]].groupby("object_label")
+    
+    ds_min = ds.min(dim="trajectory_number")
+    ds_max = ds.max(dim="trajectory_number")
+    ds_mean = ds.mean(dim="trajectory_number")
+    
+    for c in 'xyz':
+        ds_min = ds_min.rename({c:f"{c}_min"})
+        ds_max = ds_max.rename({c:f"{c}_max"})
+        ds_mean = ds_mean.rename({c:f"{c}_mean"})
+        
+    ds_out = xr.merge([ds_min, ds_max, ds_mean])
+        
+    return ds_out
+            
+def box_xyz(b):
+    """
+    Convert object bounds to plottable x,y,z for a box.
+
+    Parameters
+    ----------
+    b : xarray.Dataset
+        Contains {x/y/z}_{min/max}
+
+    Returns
+    -------
+    x : numpy array
+        x values for box.
+    y : numpy array
+        y values for box.
+    z : numpy array
+        z values for box.
+
+    """
+    x = np.array([b.x_min, b.x_min, b.x_max, b.x_max, b.x_min,
+                  b.x_min, b.x_min, b.x_max, b.x_max, b.x_min])
+    y = np.array([b.y_min, b.y_max, b.y_max, b.y_min, b.y_min,
+                  b.y_min, b.y_max, b.y_max, b.y_min, b.y_min])
+    z = np.array([b.z_min, b.z_min, b.z_min, b.z_min, b.z_min,
+                  b.z_max, b.z_max, b.z_max, b.z_max, b.z_max])
+    return x, y, z
+        

@@ -1,11 +1,11 @@
 # cohobj
 Some useful tools for dealing with objects in Large Eddy Simulation data.
 
-See https://readingclouds.github.io/cohobj/ for documentation.
+See https://paraconuk.github.io/cohobj/ for documentation.
 
 Users should pip install to a suitable environment using
 
-    pip install  git+https://github.com/ReadingClouds/cohobj.git
+    pip install  git+https://github.com/ParaConUK/cohobj.git
 
 This will install into the standard library.
 

@@ -125,7 +125,7 @@ def label_3D_cyclic(mask) :
 
     return labels
 
-def get_object_labels(mask:xr.DataArray)->xr.DataArray:
+def get_object_labels(mask: xr.DataArray)->xr.DataArray:
     """
     Convert 3D logical mask to object labels corresponding to mask positions. 
 
@@ -155,7 +155,7 @@ def get_object_labels(mask:xr.DataArray)->xr.DataArray:
             
     return olab
 
-def unsplit_objects(ds_traj, Lx, Ly) :
+def unsplit_objects(ds_traj, Lx=None, Ly=None) :
     """
     Unsplit a set of objects at a set of times using unsplit_object on each.
 
@@ -175,6 +175,9 @@ def unsplit_objects(ds_traj, Lx, Ly) :
     nobjects = ds_traj["object_label"].attrs["nobjects"]
     if nobjects < 1:
         return ds_traj
+
+    if Lx is None : Lx = ds_traj.attrs["Lx"]
+    if Ly is None : Ly = ds_traj.attrs["Ly"]
 
     print('Unsplitting Objects:')
     
@@ -247,7 +250,7 @@ def get_bounding_boxes(ds_traj, use_mask=False):
         ds = ds_traj[["x", "y", "z", "object_label"]].where(ds_traj["obj_mask"]).groupby("object_label")
     else:    
         ds = ds_traj[["x", "y", "z", "object_label"]].groupby("object_label")
-    
+
     ds_min = ds.min(dim="trajectory_number")
     ds_max = ds.max(dim="trajectory_number")
     ds_mean = ds.mean(dim="trajectory_number")
@@ -260,6 +263,11 @@ def get_bounding_boxes(ds_traj, use_mask=False):
     ds_out = xr.merge([ds_min, ds_max, ds_mean])
         
     return ds_out
+
+def box_bounds(b):
+    box = b[['x_min', 'x_max', 'y_min', 'y_max', 'z_min', 'z_max']]
+
+    return box
             
 def box_xyz(b):
     """
@@ -287,4 +295,95 @@ def box_xyz(b):
     z = np.array([b.z_min, b.z_min, b.z_min, b.z_min, b.z_min,
                   b.z_max, b.z_max, b.z_max, b.z_max, b.z_max])
     return x, y, z
-        
+
+def box_overlap_with_wrap(b_test, b_set, nx, ny) :
+    """
+    Compute whether rectangular boxes intersect.
+
+    Args
+    ----
+        b_test: box for testing xr.DataArray  
+        b_set: set of boxes xr.DataArray
+        nx: number of points in x grid.
+        ny: number of points in y grid.
+
+    Returns
+    -------
+        overlapping box ids
+
+    @author: Peter Clark
+
+    """
+    # Wrap not yet implemented
+
+    def overlap_1D(min1, max1, min2, max2, n):
+        t1 = np.logical_and(min1 >= min2, min1 <= max2)
+        t2 = np.logical_and(max1 >= min2, max1 <= max2)
+        t3 = np.logical_and(min1 <= min2, max1 >= max2)
+        t4 = np.logical_and(min1 >= min2, max1 <= max2)
+        overlap =np.logical_or(np.logical_or( t1, t2), np.logical_or( t3, t4) )
+        return overlap
+
+    x_overlap = overlap_1D(b_test.x_min, b_test.x_max,
+                            b_set.x_min,  b_set.x_max, nx)
+
+    y_overlap = overlap_1D(b_test.y_min, b_test.y_max,
+                            b_set.y_min,  b_set.y_max, ny)
+
+    overlap = np.logical_and(x_overlap, y_overlap)
+
+    overlap_boxes = b_set.where(overlap).dropna(dim="object_label")
+
+    if overlap_boxes.object_label.size == 0: overlap_boxes = None
+
+    return overlap_boxes
+
+def refine_object_overlap(tr1, tr2) :
+    """
+    Method to estimate degree of overlap between two trajectory objects.
+        Reference object is self.family trajectory object obj at time master_ref-time
+        Comparison object is self.family trajectory object mobj
+        at same true time, reference time master_ref-(t_off+1).
+
+    Args:
+        t_off(integer)    : Reference object is at time index master_ref-time
+        time(integer)     : Comparison object is at time index master_ref-(t_off+1)
+        obj(integer)      : Reference object id
+        mobj(integer)     : Comparison object if.
+        master_ref=None(integer) : default is last set in family.
+
+    Returns:
+        Fractional overlap
+
+    @author: Peter Clark
+
+    """
+    def extract_obj_as1Dint(traj) :
+
+        dx = traj.attrs['dx']
+        dy = traj.attrs['dy']
+        dz = traj.attrs['dz']
+
+        nx = int(round(traj.attrs['Lx'] / dx))
+        ny = int(round(traj.attrs['Ly'] / dy))
+
+        mask = traj.obj_mask.values
+
+        if type(mask[0]) is not bool: mask = (mask == 1)
+
+        itrx = (traj.x.values[mask] / dx + 0.5).astype(int)
+        itry = (traj.y.values[mask] / dy + 0.5).astype(int)
+        itrz = (traj.z.values[mask] / dz + 0.5).astype(int)
+
+        tr1D = np.unique(itrx + nx * (itry + ny * itrz))
+        return tr1D
+
+    tr1D  = extract_obj_as1Dint(tr1)
+    trm1D = extract_obj_as1Dint(tr2)
+
+    max_size = np.max([np.size(tr1D),np.size(trm1D)])
+    if max_size > 0 :
+        intersection = np.size(np.intersect1d(tr1D, trm1D)) / max_size
+    else :
+        intersection = 0
+    return intersection

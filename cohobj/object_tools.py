@@ -264,7 +264,22 @@ def get_bounding_boxes(ds_traj, use_mask=False):
         
     return ds_out
 
-def box_bounds(b):
+def box_bounds(b:xr.Dataset)->xr.Dataset:
+    """
+    Select object box boundaries from Dataset.
+
+    Parameters
+    ----------
+    b : xr.Dataset
+        Dataset containing box boundaries.
+
+    Returns
+    -------
+    box : xr.Dataset
+        Dataset containing just box boundaries.
+
+    """
+
     box = b[['x_min', 'x_max', 'y_min', 'y_max', 'z_min', 'z_max']]
 
     return box
@@ -296,14 +311,43 @@ def box_xyz(b):
                   b.z_max, b.z_max, b.z_max, b.z_max, b.z_max])
     return x, y, z
 
+def box_overlap_fast(test_xmin, test_xmax, test_ymin, test_ymax,
+                     set_xmin,  set_xmax,  set_ymin,  set_ymax, set_id):
+
+    def over_1D(min1, max1, min2, max2):
+
+        # min1_ge_min2 =
+        t1 = np.logical_and(min2 <= min1, min1 <= max2)
+        t2 = np.logical_and(min2 <= max1, max1 <= max2)
+        t3 = np.logical_and(min1 <= min2, min2 <= max1)
+        t4 = np.logical_and(min1 <= max2, max2 <= max1)
+        # t3 = np.logical_and(min1 <= min2, max1 >= max2)
+        # t4 = np.logical_and(min1 >= min2, max1 <= max2)
+        overlap =np.logical_or(np.logical_or( t1, t2), np.logical_or( t3, t4) )
+        return overlap
+
+    x_overlap = over_1D(test_xmin, test_xmax,
+                        set_xmin,  set_xmax)
+
+    y_overlap = over_1D(test_ymin, test_ymax,
+                        set_ymin,  set_ymax)
+
+    overlap = np.logical_and(x_overlap, y_overlap)
+
+    overlap_boxes = set_id[overlap]
+
+    # if overlap_boxes.object_label.size == 0: overlap_boxes = None
+
+    return overlap_boxes
+
 def box_overlap_with_wrap(b_test, b_set, nx, ny) :
     """
     Compute whether rectangular boxes intersect.
 
-    Args
-    ----
-        b_test: box for testing xr.DataArray  
-        b_set: set of boxes xr.DataArray
+    Parameters
+    ----------
+        b_test: box for testing xarray.DataArray  
+        b_set: set of boxes xarray.DataArray
         nx: number of points in x grid.
         ny: number of points in y grid.
 
@@ -317,10 +361,14 @@ def box_overlap_with_wrap(b_test, b_set, nx, ny) :
     # Wrap not yet implemented
 
     def overlap_1D(min1, max1, min2, max2, n):
-        t1 = np.logical_and(min1 >= min2, min1 <= max2)
-        t2 = np.logical_and(max1 >= min2, max1 <= max2)
-        t3 = np.logical_and(min1 <= min2, max1 >= max2)
-        t4 = np.logical_and(min1 >= min2, max1 <= max2)
+
+        # min1_ge_min2 =
+        t1 = np.logical_and(min2 <= min1, min1 <= max2)
+        t2 = np.logical_and(min2 <= max1, max1 <= max2)
+        t3 = np.logical_and(min1 <= min2, min2 <= max1)
+        t4 = np.logical_and(min1 <= max2, max2 <= max1)
+        # t3 = np.logical_and(min1 <= min2, max1 >= max2)
+        # t4 = np.logical_and(min1 >= min2, max1 <= max2)
         overlap =np.logical_or(np.logical_or( t1, t2), np.logical_or( t3, t4) )
         return overlap
 
@@ -340,22 +388,19 @@ def box_overlap_with_wrap(b_test, b_set, nx, ny) :
 
 def refine_object_overlap(tr1, tr2) :
     """
-    Method to estimate degree of overlap between two trajectory objects.
-        Reference object is self.family trajectory object obj at time master_ref-time
-        Comparison object is self.family trajectory object mobj
-        at same true time, reference time master_ref-(t_off+1).
+    Estimate degree of overlap between two trajectory objects.   
 
-    Args:
-        t_off(integer)    : Reference object is at time index master_ref-time
-        time(integer)     : Comparison object is at time index master_ref-(t_off+1)
-        obj(integer)      : Reference object id
-        mobj(integer)     : Comparison object if.
-        master_ref=None(integer) : default is last set in family.
+    Parameters
+    ----------
+    tr1 : xarray.Dataset
+        Trajectory Dataset.
+    tr2 : xarray.Dataset
+        Trajectory Dataset.
 
-    Returns:
-        Fractional overlap
-
-    @author: Peter Clark
+    Returns
+    -------
+    float
+        Fractional overlap.
 
     """
     def extract_obj_as1Dint(traj) :

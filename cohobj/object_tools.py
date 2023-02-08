@@ -234,9 +234,9 @@ def get_bounding_boxes(ds_traj, use_mask=False):
     ds_traj : xarray.Dataset
         Trajectory points "x", "y", "z" 
         with additional non-dim coord "object_label" to groupby objects.
-        and optional "obj_mask" boolean data_var.
+        and optional "object_mask" boolean data_var.
     use_mask : bool, optional 
-        If true, only use points masked True by "obj_mask". 
+        If true, only use points masked True by "object_mask". 
         The default is False.
 
     Returns
@@ -247,7 +247,7 @@ def get_bounding_boxes(ds_traj, use_mask=False):
     """
     
     if use_mask:
-        ds = ds_traj[["x", "y", "z", "object_label"]].where(ds_traj["obj_mask"]).groupby("object_label")
+        ds = ds_traj[["x", "y", "z", "object_label"]].where(ds_traj["object_mask"]).groupby("object_label")
     else:    
         ds = ds_traj[["x", "y", "z", "object_label"]].groupby("object_label")
 
@@ -261,7 +261,8 @@ def get_bounding_boxes(ds_traj, use_mask=False):
         ds_mean = ds_mean.rename({c:f"{c}_mean"})
         
     ds_out = xr.merge([ds_min, ds_max, ds_mean])
-        
+    ds_out.attrs = ds_traj.attrs
+
     return ds_out
 
 def box_bounds(b:xr.Dataset)->xr.Dataset:
@@ -336,8 +337,6 @@ def box_overlap_fast(test_xmin, test_xmax, test_ymin, test_ymax,
 
     overlap_boxes = set_id[overlap]
 
-    # if overlap_boxes.object_label.size == 0: overlap_boxes = None
-
     return overlap_boxes
 
 def box_overlap_with_wrap(b_test, b_set, nx, ny) :
@@ -386,6 +385,47 @@ def box_overlap_with_wrap(b_test, b_set, nx, ny) :
 
     return overlap_boxes
 
+def refine_object_overlap_fast(tr1, tr2, nx, ny) :
+    """
+    Estimate degree of overlap between two trajectory objects.   
+
+    Parameters
+    ----------
+    tr1 : np.array
+        Trajectory data. [0:3,...] = [x, y, z] in grid points.
+    tr2 : np.array
+        Trajectory data. [0:3,...] = [x, y, z] in grid points.
+
+
+    Returns
+    -------
+    float
+        Fractional overlap.
+
+    """
+    def extract_obj_as1Dint(traj) :
+
+        mask = traj['mask']
+        tr = traj['xyz']
+
+        itrx = (tr[0, mask] + 0.5).astype(int)
+        itry = (tr[1, mask] + 0.5).astype(int)
+        itrz = (tr[2, mask] + 0.5).astype(int)
+
+        tr1D = np.unique(itrx + nx * (itry + ny * itrz))
+        return tr1D
+
+    tr1D  = extract_obj_as1Dint(tr1)
+    trm1D = extract_obj_as1Dint(tr2)
+
+    max_size = np.max([np.size(tr1D),np.size(trm1D)])
+    if max_size > 0 :
+        intersection = np.size(np.intersect1d(tr1D, trm1D)) / max_size
+    else :
+        intersection = 0
+    return intersection
+
+
 def refine_object_overlap(tr1, tr2) :
     """
     Estimate degree of overlap between two trajectory objects.   
@@ -412,7 +452,7 @@ def refine_object_overlap(tr1, tr2) :
         nx = int(round(traj.attrs['Lx'] / dx))
         ny = int(round(traj.attrs['Ly'] / dy))
 
-        mask = traj.obj_mask.values
+        mask = traj.object_mask.values
 
         if type(mask[0]) is not bool: mask = (mask == 1)
 
@@ -432,3 +472,127 @@ def refine_object_overlap(tr1, tr2) :
     else :
         intersection = 0
     return intersection
+
+def tr_objects_to_numpy(tr: xr.Dataset, to_gridpoint:bool = False) -> dict:
+    """
+    Convert trajectory data from xarray.Datset to dictionary.
+
+    Parameters
+    ----------
+    tr : xr.Dataset
+        Contains 'x', 'y', 'z' and 'object_mask' variables, 
+        'time' coordinate, 'ref_time' and 'object_label' non-dimensional
+        coordinates.
+    to_gridpoint : bool, optional
+        Convert physical units to grid points by dividing x by dx etc.. 
+        The default is False.
+
+    Returns
+    -------
+    dict
+        'xyz': position data as numpy array [3, time, trajectory_number],
+        'mask': in-object mask as numpy bool array [time, trajectory_number] ,
+        'object_label': Object numbers as numpy array [trajectory_number],
+        'nobjects' : int number of objects,
+        'ref_time' : reference time,
+        'time' : time as 1D numpy array,
+        'attrs': tr.attrs,
+
+    """
+
+    arr = []
+
+    for c in 'xyz':
+        if to_gridpoint:
+            v = tr[c].values / tr.attrs[f'd{c}']
+        else:
+            v = tr[c].values
+
+        arr.append(v)
+
+
+
+    if "object_mask" in tr.variables:
+        # mask = np.zeros_like(arr[0])
+        # mask[tr.object_mask.values] = 1
+        # arr.append(mask)
+        # varname += 'm'
+
+        mask = tr.object_mask.values
+
+    arr = np.stack(arr)
+
+    objnum = tr.object_label.values
+
+    nobjects = tr.object_label.attrs['nobjects']
+
+    np_traj = {'xyz': arr,
+               'mask': mask,
+               'object_label': objnum,
+               'nobjects' : nobjects,
+               'ref_time' : tr.ref_time.item(),
+               'time' : tr.time.values,
+               'attrs': tr.attrs,
+               }
+
+    return np_traj
+
+def tr_data_at_time(traj:dict, req_time:float):
+    """
+    Select trajectory data at required time from dict format data.
+
+    Parameters
+    ----------
+    traj : dict
+        Trajectory data.
+    req_time : float
+        Required time.
+
+    Returns
+    -------
+    dict
+        Output data. Format as per input but time dimension absent.
+
+    """
+    ind = np.where(traj['time'] == req_time)[0][0]
+    traj_time = {'xyz':traj['xyz'][:, ind, :],
+                 'mask': traj['mask'][ind, :],
+                 'object_label': traj['object_label'],
+                 'nobjects' : traj['nobjects'],
+                 'ref_time' : traj['ref_time'],
+                 'time' : req_time,
+                 'attrs': traj['attrs'],
+                }
+    return traj_time
+
+def tr_data_obj(traj:dict, iobj:int):
+    """
+    Select trajectory data from required object from dict format data.
+  
+
+    Parameters
+    ----------
+    traj : dict
+        Trajectory data.
+    iobj : int
+        Required object.
+
+    Returns
+    -------
+    dict
+        Output data. Format as per input but just one object.
+
+        DESCRIPTION.
+
+    """
+
+    m = traj['object_label'] == iobj
+    traj_iobj = {'xyz': traj['xyz'][..., m],
+                 'mask': traj['mask'][..., m],
+                 'ref_time': traj['ref_time'],
+                 'time': traj['time'],
+                 'object_label':[iobj],
+                 'nobjects' : 1,
+                 'attrs': traj['attrs'],
+                }
+    return traj_iobj

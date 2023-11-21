@@ -6,6 +6,7 @@ object_tools module.
 import numpy as np
 import xarray as xr
 from scipy import ndimage
+from loguru import logger
 
 def label_3D_cyclic(mask) :
     """
@@ -29,54 +30,63 @@ def label_3D_cyclic(mask) :
     @author: Peter Clark
 
     """
-    (nx, ny, nz) = mask.shape
-    labels, nobjects = ndimage.label(mask)
-    labels -=1
     
-    def relabel(labs, nobjs, i,j) :
+    def get_obj_bounds(labs, nobjs):
+        logger.debug("Getting object bounds.")
+
+        obj_bounds = np.zeros([nobjs, 3, 2], dtype=int)
+        for iobj in range(nobjs):
+            posi = np.where(labs == iobj)
+            for idim in range(3):
+                posid = posi[idim]
+                obj_bounds[iobj, idim, 0] = np.min(posid)
+                obj_bounds[iobj, idim, 1] = np.max(posid)
+                
+        return obj_bounds
+    
+    def relabel(labs, nobjs, bds, bds_index, i, j, new_bds) :
         lj = (labs == j)
         labs[lj] = i
+        bds[bds_index[i], :, :] = new_bds        
         for k in range(j+1,nobjs) :
             lk = (labs == k)
             labs[lk] = k-1
+            bds_index[k-1] = bds_index[k]
         nobjs -= 1
-        return labs, nobjs
+        return labs, nobjs, bds, bds_index[:nobjs]
 
-    def find_objects_at_edge(minflag, dim, n, labs, nobjs) :
-        #debug_label = True
-        debug_label = False
+    def find_objects_at_edge(minflag, dim, n, labs, nobjs, bds, bds_index) :
+        logger.debug(f"Finding edge objects {minflag} {dim}.")
 
         i = 0
         while i < (nobjs-2) :
-            # grid points corresponding to label i
-            posi = np.where(labs == i)
-            posid = posi[dim]
+            # grid point bunds corresponding to label i
+            posid = bds[bds_index[i], dim, :]
             # Does object i have any points on the required border?
             if minflag :
-                obj_i_on_border = (np.min(posid) == 0)
+                obj_i_on_border = (posid[0] == 0)
                 border = '0'
             else:
-                obj_i_on_border = (np.max(posid) == (n-1))
+                obj_i_on_border = (posid[1] == (n-1))
                 border = f"n{['x','y'][dim]}-1"
                 
             if obj_i_on_border :
-                if debug_label :
-                    print(f"Object {i:03d} on {['x','y'][dim]}={border} border?")
+                logger.debug(f"Object {i:03d} on {['x','y'][dim]}={border} border?")
                         
                 # If object i does have any points on the required border
                 # Loop over remaining objects to see if they have points
                 # on the opposite border
                 j = i+1
                 while j < nobjs :
-                    # grid points corresponding to label j
-                    posj = np.where(labs == j)
-                    posjd = posj[dim]
+                    overlap = False
+                    # grid point bounds corresponding to label j
+                    posjd = bds[bds_index[j], dim, :]
 
                     if minflag :
-                        obj_j_on_opposite_border = (np.max(posjd) == (n-1))
+                        obj_j_on_opposite_border = (posjd[1] == (n-1))
                         border = f"n{['x','y'][dim]}-1"
                     else:
-                        obj_j_on_opposite_border = (np.min(posjd) == 0)
+                        obj_j_on_opposite_border = (posjd[0] == 0)
                         border = '0'
 
                     if obj_j_on_opposite_border :
@@ -84,37 +94,90 @@ def label_3D_cyclic(mask) :
                         # opposite border, then do they overlap in the
                         # other horizontal coordinate space?
 
-                        if debug_label :
-                            print(f"Match Object {j:03d} on {['x','y'][dim]}={border} border?")
+                        logger.debug(f"Match Object {j:03d} on {['x','y'][dim]}={border} border?")
 
-                        # Select out just the border points for object i and j.
-                        if minflag :
-                            ilist = np.where(posid == 0)
-                            jlist = np.where(posjd == (n-1))
-                        else :
-                            ilist = np.where(posid == (n-1))
-                            jlist = np.where(posjd == 0)
-                                                        
-                        # x or y intersection
-                        int1 = np.intersect1d(posi[1-dim][ilist],
-                                              posj[1-dim][jlist])
-                        # z-intersection
-                        int2 = np.intersect1d(posi[2][ilist],
-                                              posj[2][jlist])
-                        # If any overlab, label object j as i and
+                        overlap = True
+                        for testdim in range(3):
+                            if testdim == dim: continue
+                            mini = bds[bds_index[i], testdim, 0]
+                            maxi = bds[bds_index[i], testdim, 1]
+                            minj = bds[bds_index[j], testdim, 0]
+                            maxj = bds[bds_index[j], testdim, 1]
+                            
+                            overlap = overlap and overlap_1D_box(mini, maxi, minj, maxj)
+                            
+                        if overlap:
+                            if dim == 0 and minflag:
+                                posi = np.where(labs[ 0, :, :] == i)
+                                posj = np.where(labs[-1, :, :] == j)
+                            elif dim == 0 and not minflag:
+                                posi = np.where(labs[-1, :, :] == i)
+                                posj = np.where(labs[ 0, :, :] == j)
+                            elif dim == 1 and minflag:
+                                posi = np.where(labs[ :, 0, :] == i)
+                                posj = np.where(labs[ :,-1, :] == j)
+                            elif dim == 1 and not minflag:
+                                posi = np.where(labs[ :,-1, :] == i)
+                                posj = np.where(labs[ :, 0, :] == j)
+                                
+                            int1 = np.intersect1d(posi[0], posj[0])                        
+                            int2 = np.intersect1d(posi[1], posj[1]) 
+                            
+                            overlap = (np.size(int1)>0 and np.size(int2)>0)
+                        # If any overlap, label object j as i and
                         # relabel the rest.
-                        if np.size(int1)>0 and np.size(int2)>0 :
-                            if debug_label :
-                                print('Yes!',i,j)
-                            labs, nobjs = relabel(labs, nobjs, i, j)
-                    j += 1
+
+                        if overlap:
+                            logger.debug('Overlap found!',i,j)
+                            new_bds = np.zeros([3, 2], dtype=int)
+                            for testdim in range(3):
+                                if testdim == dim:
+                                    if minflag : 
+                                        new_bds[testdim, 0] = \
+                                        bds[bds_index[j], testdim, 0] - n
+                                        new_bds[testdim, 1] = \
+                                        bds[bds_index[i], testdim, 1]
+                                    else:
+                                        new_bds[testdim, 0] = \
+                                        bds[bds_index[i], testdim, 0]
+                                        new_bds[testdim, 1] = \
+                                        bds[bds_index[j], testdim, 1] + n
+                                else:
+                                    new_bds[testdim, 0] = min(
+                                        bds[bds_index[i], testdim, 0],
+                                        bds[bds_index[j], testdim, 0])
+                                    new_bds[testdim, 1] = max(
+                                        bds[bds_index[i], testdim, 1],
+                                        bds[bds_index[j], testdim, 1])
+                            
+                            labs, nobjs, bds, bds_index = relabel(labs, 
+                                                                  nobjs, 
+                                                                  bds, 
+                                                                  bds_index, 
+                                                                  i, 
+                                                                  j, 
+                                                                  new_bds)
+                    # Catch case where consecutive js overlap.
+                    if not overlap:
+                        j += 1
             i += 1
-        return labs, nobjs
+        return labs, nobjs, bds, bds_index
+    
+    (nx, ny, nz) = mask.shape
+    logger.debug("Finding labels.")
+    labels, nobjects = ndimage.label(mask)
+    logger.debug("Found labels.")
+    
+    labels -=1
+
+    obj_bounds = get_obj_bounds(labels, nobjects)
+    obj_index = np.arange(nobjects)
+       
     # Look at 4 boundary zones, i in [0, nx), j in [0, ny).
-    labels, nobjects = find_objects_at_edge(True,  0, nx, labels, nobjects)
-    labels, nobjects = find_objects_at_edge(False, 0, nx, labels, nobjects)
-    labels, nobjects = find_objects_at_edge(True,  1, ny, labels, nobjects)
-    labels, nobjects = find_objects_at_edge(False, 1, ny, labels, nobjects)
+    labels, nobjects, obj_bounds, obj_index = find_objects_at_edge(True,  0, nx, labels, nobjects, obj_bounds, obj_index)
+    labels, nobjects, obj_bounds, obj_index = find_objects_at_edge(False, 0, nx, labels, nobjects, obj_bounds, obj_index)
+    labels, nobjects, obj_bounds, obj_index = find_objects_at_edge(True,  1, ny, labels, nobjects, obj_bounds, obj_index)
+    labels, nobjects, obj_bounds, obj_index = find_objects_at_edge(False, 1, ny, labels, nobjects, obj_bounds, obj_index)
     
     labels = xr.DataArray(labels, 
                           name='object_labels', 
@@ -179,7 +242,7 @@ def unsplit_objects(ds_traj, Lx=None, Ly=None) :
     if Lx is None : Lx = ds_traj.attrs["Lx"]
     if Ly is None : Ly = ds_traj.attrs["Ly"]
 
-    print('Unsplitting Objects:')
+    logger.debug('Unsplitting Objects:')
     
     def _unsplit_object(tr):
         """
@@ -312,25 +375,45 @@ def box_xyz(b):
                   b.z_max, b.z_max, b.z_max, b.z_max, b.z_max])
     return x, y, z
 
+def overlap_1D_box(min1, max1, min2, max2):
+
+    t1 = (min2 <= min1) and (min1 <= max2)
+    t2 = (min2 <= max1) and (max1 <= max2)
+    t3 = (min1 <= min2) and (min2 <= max1)
+    t4 = (min1 <= max2) and (max2 <= max1)
+    overlap = ( t1 or t2 or t3 or t4 )
+    return overlap
+
+
+def overlap_1D(min1, max1, min2, max2):
+
+    t1 = np.logical_and(min2 <= min1, min1 <= max2)
+    t2 = np.logical_and(min2 <= max1, max1 <= max2)
+    t3 = np.logical_and(min1 <= min2, min2 <= max1)
+    t4 = np.logical_and(min1 <= max2, max2 <= max1)
+    overlap =np.logical_or(np.logical_or( t1, t2), np.logical_or( t3, t4) )
+    return overlap
+
+
 def box_overlap_fast(test_xmin, test_xmax, test_ymin, test_ymax,
                      set_xmin,  set_xmax,  set_ymin,  set_ymax, set_id):
 
-    def over_1D(min1, max1, min2, max2):
+    # def over_1D(min1, max1, min2, max2):
 
-        # min1_ge_min2 =
-        t1 = np.logical_and(min2 <= min1, min1 <= max2)
-        t2 = np.logical_and(min2 <= max1, max1 <= max2)
-        t3 = np.logical_and(min1 <= min2, min2 <= max1)
-        t4 = np.logical_and(min1 <= max2, max2 <= max1)
-        # t3 = np.logical_and(min1 <= min2, max1 >= max2)
-        # t4 = np.logical_and(min1 >= min2, max1 <= max2)
-        overlap =np.logical_or(np.logical_or( t1, t2), np.logical_or( t3, t4) )
-        return overlap
+    #     # min1_ge_min2 =
+    #     t1 = np.logical_and(min2 <= min1, min1 <= max2)
+    #     t2 = np.logical_and(min2 <= max1, max1 <= max2)
+    #     t3 = np.logical_and(min1 <= min2, min2 <= max1)
+    #     t4 = np.logical_and(min1 <= max2, max2 <= max1)
+    #     # t3 = np.logical_and(min1 <= min2, max1 >= max2)
+    #     # t4 = np.logical_and(min1 >= min2, max1 <= max2)
+    #     overlap =np.logical_or(np.logical_or( t1, t2), np.logical_or( t3, t4) )
+    #     return overlap
 
-    x_overlap = over_1D(test_xmin, test_xmax,
+    x_overlap = overlap_1D(test_xmin, test_xmax,
                         set_xmin,  set_xmax)
 
-    y_overlap = over_1D(test_ymin, test_ymax,
+    y_overlap = overlap_1D(test_ymin, test_ymax,
                         set_ymin,  set_ymax)
 
     overlap = np.logical_and(x_overlap, y_overlap)
@@ -359,23 +442,12 @@ def box_overlap_with_wrap(b_test, b_set, nx, ny) :
     """
     # Wrap not yet implemented
 
-    def overlap_1D(min1, max1, min2, max2, n):
-
-        # min1_ge_min2 =
-        t1 = np.logical_and(min2 <= min1, min1 <= max2)
-        t2 = np.logical_and(min2 <= max1, max1 <= max2)
-        t3 = np.logical_and(min1 <= min2, min2 <= max1)
-        t4 = np.logical_and(min1 <= max2, max2 <= max1)
-        # t3 = np.logical_and(min1 <= min2, max1 >= max2)
-        # t4 = np.logical_and(min1 >= min2, max1 <= max2)
-        overlap =np.logical_or(np.logical_or( t1, t2), np.logical_or( t3, t4) )
-        return overlap
 
     x_overlap = overlap_1D(b_test.x_min, b_test.x_max,
-                            b_set.x_min,  b_set.x_max, nx)
+                            b_set.x_min,  b_set.x_max) #, nx)
 
     y_overlap = overlap_1D(b_test.y_min, b_test.y_max,
-                            b_set.y_min,  b_set.y_max, ny)
+                            b_set.y_min,  b_set.y_max) #, ny)
 
     overlap = np.logical_and(x_overlap, y_overlap)
 

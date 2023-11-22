@@ -41,14 +41,6 @@ def label_3D_cyclic(mask, fast_overlap = False) :
             "Getting object bounds using scikit.measure.regionprops_table.")
         
         obj_bounds = np.zeros([nobjs, 3, 2], dtype=int)
-        
-        # props = skm.regionprops(labs)
-                
-        # for iobj, prop in enumerate(props):
-        #     bbox = prop.bbox
-        #     for idim in range(3):
-        #         obj_bounds[iobj, idim, 0] = bbox[idim]
-        #         obj_bounds[iobj, idim, 1] = bbox[3 + idim] - 1               
                 
         props2 = skm.regionprops_table(labs, properties=['bbox'])
         for idim in range(3):
@@ -59,8 +51,6 @@ def label_3D_cyclic(mask, fast_overlap = False) :
 
     def get_obj_bounds(labs, nobjs):
         logger.debug("Getting object bounds.")
-        
-        props = skm.regionprops(labs)
         
         obj_bounds = np.zeros([nobjs, 3, 2], dtype=int)
                     
@@ -239,7 +229,23 @@ def label_3D_cyclic(mask, fast_overlap = False) :
 
     return labels
 
-def remap_labels(labels, label_index):
+def remap_labels(labels: xr.DataArray, label_index: list[int])->xr.DataArray:
+    """
+    Change labels to sequential integers.
+
+    Parameters
+    ----------
+    labels : xr.DataArray
+        Array of integer labels.
+    label_index : list[int]
+        Inverse mapping - label_index[i] contains existing label, changed to i.
+
+    Returns
+    -------
+    labels : xr.DataArray
+        Array of integer labels.
+
+    """
     logger.debug("Remapping labels")
     for new_label, old_label in enumerate(label_index):
         if new_label != old_label:

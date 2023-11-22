@@ -197,7 +197,9 @@ def label_3D_cyclic(mask, fast_overlap = False) :
     (nx, ny, nz) = mask.shape
     logger.debug("Finding labels.")
     if use_scikit:
-        labels, nobjects = skm.label(mask, return_num=True)
+        labels, nobjects = skm.label(mask, return_num=True, connectivity=1)
+        labels = labels.astype(np.int32)
+        
         logger.debug("Found labels using scikit.measure.label.")
         obj_bounds = get_obj_bounds_scikit(labels, nobjects)
         labels -=1

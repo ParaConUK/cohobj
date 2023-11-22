@@ -8,7 +8,7 @@ import xarray as xr
 from scipy import ndimage
 from loguru import logger
 
-def label_3D_cyclic(mask) :
+def label_3D_cyclic(mask, fast_overlap = False) :
     """
     Label 3D objects taking account of cyclic boundary in x and y.
 
@@ -33,7 +33,7 @@ def label_3D_cyclic(mask) :
     
     def get_obj_bounds(labs, nobjs):
         logger.debug("Getting object bounds.")
-
+        
         obj_bounds = np.zeros([nobjs, 3, 2], dtype=int)
         for iobj in range(nobjs):
             posi = np.where(labs == iobj)
@@ -44,24 +44,23 @@ def label_3D_cyclic(mask) :
                 
         return obj_bounds
     
-    def relabel(labs, nobjs, bds, bds_index, i, j, new_bds) :
-        lj = (labs == j)
-        labs[lj] = i
-        bds[bds_index[i], :, :] = new_bds        
-        for k in range(j+1,nobjs) :
-            lk = (labs == k)
-            labs[lk] = k-1
-            bds_index[k-1] = bds_index[k]
+    def relabel(labs, nobjs, bds, lab_index, i, j, new_bds) :
+        lj = (labs == lab_index[j])
+        labs[lj] = lab_index[i]
+        bds[lab_index[i], :, :] = new_bds
+        lab_index.pop(j)        
         nobjs -= 1
-        return labs, nobjs, bds, bds_index[:nobjs]
+        return labs, nobjs, bds, lab_index
 
-    def find_objects_at_edge(minflag, dim, n, labs, nobjs, bds, bds_index) :
+    def find_objects_at_edge(minflag, dim, n, labs, nobjs, bds, lab_index,
+                             fast_overlap = False) :
         logger.debug(f"Finding edge objects {minflag} {dim}.")
 
         i = 0
         while i < (nobjs-2) :
+            ii = lab_index[i]
             # grid point bunds corresponding to label i
-            posid = bds[bds_index[i], dim, :]
+            posid = bds[ii, dim, :]
             # Does object i have any points on the required border?
             if minflag :
                 obj_i_on_border = (posid[0] == 0)
@@ -78,9 +77,10 @@ def label_3D_cyclic(mask) :
                 # on the opposite border
                 j = i+1
                 while j < nobjs :
+                    jj = lab_index[j]
                     overlap = False
                     # grid point bounds corresponding to label j
-                    posjd = bds[bds_index[j], dim, :]
+                    posjd = bds[jj, dim, :]
 
                     if minflag :
                         obj_j_on_opposite_border = (posjd[1] == (n-1))
@@ -99,31 +99,33 @@ def label_3D_cyclic(mask) :
                         overlap = True
                         for testdim in range(3):
                             if testdim == dim: continue
-                            mini = bds[bds_index[i], testdim, 0]
-                            maxi = bds[bds_index[i], testdim, 1]
-                            minj = bds[bds_index[j], testdim, 0]
-                            maxj = bds[bds_index[j], testdim, 1]
+                            mini = bds[ii, testdim, 0]
+                            maxi = bds[ii, testdim, 1]
+                            minj = bds[jj, testdim, 0]
+                            maxj = bds[jj, testdim, 1]
                             
                             overlap = overlap and overlap_1D_box(mini, maxi, minj, maxj)
                             
-                        if overlap:
+                        if overlap and not fast_overlap:
                             if dim == 0 and minflag:
-                                posi = np.where(labs[ 0, :, :] == i)
-                                posj = np.where(labs[-1, :, :] == j)
+                                posi = np.where(labs[ 0, :, :] == ii)
+                                posj = np.where(labs[-1, :, :] == jj)
                             elif dim == 0 and not minflag:
-                                posi = np.where(labs[-1, :, :] == i)
-                                posj = np.where(labs[ 0, :, :] == j)
+                                posi = np.where(labs[-1, :, :] == ii)
+                                posj = np.where(labs[ 0, :, :] == jj)
                             elif dim == 1 and minflag:
-                                posi = np.where(labs[ :, 0, :] == i)
-                                posj = np.where(labs[ :,-1, :] == j)
+                                posi = np.where(labs[ :, 0, :] == ii)
+                                posj = np.where(labs[ :,-1, :] == jj)
                             elif dim == 1 and not minflag:
-                                posi = np.where(labs[ :,-1, :] == i)
-                                posj = np.where(labs[ :, 0, :] == j)
+                                posi = np.where(labs[ :,-1, :] == ii)
+                                posj = np.where(labs[ :, 0, :] == jj)
                                 
-                            int1 = np.intersect1d(posi[0], posj[0])                        
-                            int2 = np.intersect1d(posi[1], posj[1]) 
+                            int1 = np.intersect1d(posi[0], posj[0]) 
+                            overlap = (int1.size > 0)
+                            if overlap:
+                                int2 = np.intersect1d(posi[1], posj[1]) 
+                                overlap = (int2.size > 0)
                             
-                            overlap = (np.size(int1)>0 and np.size(int2)>0)
                         # If any overlap, label object j as i and
                         # relabel the rest.
 
@@ -134,26 +136,26 @@ def label_3D_cyclic(mask) :
                                 if testdim == dim:
                                     if minflag : 
                                         new_bds[testdim, 0] = \
-                                        bds[bds_index[j], testdim, 0] - n
+                                        bds[jj, testdim, 0] - n
                                         new_bds[testdim, 1] = \
-                                        bds[bds_index[i], testdim, 1]
+                                        bds[ii, testdim, 1]
                                     else:
                                         new_bds[testdim, 0] = \
-                                        bds[bds_index[i], testdim, 0]
+                                        bds[ii, testdim, 0]
                                         new_bds[testdim, 1] = \
-                                        bds[bds_index[j], testdim, 1] + n
+                                        bds[jj, testdim, 1] + n
                                 else:
                                     new_bds[testdim, 0] = min(
-                                        bds[bds_index[i], testdim, 0],
-                                        bds[bds_index[j], testdim, 0])
+                                        bds[ii, testdim, 0],
+                                        bds[jj, testdim, 0])
                                     new_bds[testdim, 1] = max(
-                                        bds[bds_index[i], testdim, 1],
-                                        bds[bds_index[j], testdim, 1])
+                                        bds[ii, testdim, 1],
+                                        bds[jj, testdim, 1])
                             
-                            labs, nobjs, bds, bds_index = relabel(labs, 
+                            labs, nobjs, bds, lab_index = relabel(labs, 
                                                                   nobjs, 
                                                                   bds, 
-                                                                  bds_index, 
+                                                                  lab_index, 
                                                                   i, 
                                                                   j, 
                                                                   new_bds)
@@ -161,7 +163,7 @@ def label_3D_cyclic(mask) :
                     if not overlap:
                         j += 1
             i += 1
-        return labs, nobjs, bds, bds_index
+        return labs, nobjs, bds, lab_index
     
     (nx, ny, nz) = mask.shape
     logger.debug("Finding labels.")
@@ -171,13 +173,27 @@ def label_3D_cyclic(mask) :
     labels -=1
 
     obj_bounds = get_obj_bounds(labels, nobjects)
-    obj_index = np.arange(nobjects)
+    lab_index = list(range(nobjects))
        
     # Look at 4 boundary zones, i in [0, nx), j in [0, ny).
-    labels, nobjects, obj_bounds, obj_index = find_objects_at_edge(True,  0, nx, labels, nobjects, obj_bounds, obj_index)
-    labels, nobjects, obj_bounds, obj_index = find_objects_at_edge(False, 0, nx, labels, nobjects, obj_bounds, obj_index)
-    labels, nobjects, obj_bounds, obj_index = find_objects_at_edge(True,  1, ny, labels, nobjects, obj_bounds, obj_index)
-    labels, nobjects, obj_bounds, obj_index = find_objects_at_edge(False, 1, ny, labels, nobjects, obj_bounds, obj_index)
+    labels, nobjects, obj_bounds, lab_index = \
+        find_objects_at_edge(True,  0, nx, labels, nobjects, 
+                             obj_bounds, lab_index, 
+                             fast_overlap=fast_overlap)
+    labels, nobjects, obj_bounds, lab_index = \
+        find_objects_at_edge(False, 0, nx, labels, nobjects, 
+                             obj_bounds, lab_index, 
+                             fast_overlap=fast_overlap)
+    labels, nobjects, obj_bounds, lab_index = \
+        find_objects_at_edge(True,  1, ny, labels, nobjects, 
+                             obj_bounds, lab_index,
+                             fast_overlap=fast_overlap)
+    labels, nobjects, obj_bounds, lab_index = \
+        find_objects_at_edge(False, 1, ny, labels, nobjects, 
+                             obj_bounds, lab_index, 
+                             fast_overlap=fast_overlap)
+        
+    labels = remap_labels(labels, lab_index)
     
     labels = xr.DataArray(labels, 
                           name='object_labels', 
@@ -187,6 +203,15 @@ def label_3D_cyclic(mask) :
                           )
 
     return labels
+
+def remap_labels(labels, label_index):
+    logger.debug("Remapping labels")
+    for new_label, old_label in enumerate(label_index):
+        if new_label != old_label:
+            p = (labels == old_label)
+            labels[p] = new_label
+    return labels
+            
 
 def get_object_labels(mask: xr.DataArray)->xr.DataArray:
     """

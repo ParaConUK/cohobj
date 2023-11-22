@@ -6,7 +6,12 @@ object_tools module.
 import numpy as np
 import xarray as xr
 from scipy import ndimage
+import skimage.measure as skm
+import pandas as pd
+
 from loguru import logger
+
+use_scikit = True
 
 def label_3D_cyclic(mask, fast_overlap = False) :
     """
@@ -31,10 +36,34 @@ def label_3D_cyclic(mask, fast_overlap = False) :
 
     """
     
+    def get_obj_bounds_scikit(labs, nobjs):
+        logger.debug(
+            "Getting object bounds using scikit.measure.regionprops_table.")
+        
+        obj_bounds = np.zeros([nobjs, 3, 2], dtype=int)
+        
+        # props = skm.regionprops(labs)
+                
+        # for iobj, prop in enumerate(props):
+        #     bbox = prop.bbox
+        #     for idim in range(3):
+        #         obj_bounds[iobj, idim, 0] = bbox[idim]
+        #         obj_bounds[iobj, idim, 1] = bbox[3 + idim] - 1               
+                
+        props2 = skm.regionprops_table(labs, properties=['bbox'])
+        for idim in range(3):
+            obj_bounds[:, idim, 0] = props2[f'bbox-{idim}']
+            obj_bounds[:, idim, 1] = props2[f'bbox-{3+idim}'] - 1             
+                                    
+        return obj_bounds
+
     def get_obj_bounds(labs, nobjs):
         logger.debug("Getting object bounds.")
         
+        props = skm.regionprops(labs)
+        
         obj_bounds = np.zeros([nobjs, 3, 2], dtype=int)
+                    
         for iobj in range(nobjs):
             posi = np.where(labs == iobj)
             for idim in range(3):
@@ -167,12 +196,16 @@ def label_3D_cyclic(mask, fast_overlap = False) :
     
     (nx, ny, nz) = mask.shape
     logger.debug("Finding labels.")
-    labels, nobjects = ndimage.label(mask)
-    logger.debug("Found labels.")
-    
-    labels -=1
-
-    obj_bounds = get_obj_bounds(labels, nobjects)
+    if use_scikit:
+        labels, nobjects = skm.label(mask, return_num=True)
+        logger.debug("Found labels using scikit.measure.label.")
+        obj_bounds = get_obj_bounds_scikit(labels, nobjects)
+        labels -=1
+    else:
+        labels, nobjects = ndimage.label(mask)
+        logger.debug("Found labels using scipy.ndimage.label.")
+        labels -=1
+        obj_bounds = get_obj_bounds(labels, nobjects)
     lab_index = list(range(nobjects))
        
     # Look at 4 boundary zones, i in [0, nx), j in [0, ny).

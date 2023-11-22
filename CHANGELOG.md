@@ -2,11 +2,11 @@
 
 ## [Unreleased](https://github.com/ParaConUK/cohobj/tree/HEAD)
 
-[Full Changelog](https://github.com/ParaConUK/advtraj/compare/v0.3.0...HEAD)
+[Full Changelog](https://github.com/ParaConUK/cohobj/compare/v0.3.0...HEAD)
 
-## [v0.3.0](https://github.com/ParaConUK/advtraj/tree/v0.3.0)
+## [v0.3.0](https://github.com/ParaConUK/cohobj/tree/v0.3.0)
 
-[Full Changelog](https://github.com/ParaConUK/advtraj/compare/v0.2.0...v0.3.0)
+[Full Changelog](https://github.com/ParaConUK/cohobj/compare/v0.2.0...v0.3.0)
 
 *new features*
 
@@ -25,6 +25,6 @@ from loguru import logger
 logger.enable("cohobj")
 ```
 
-## [v0.2.0](https://github.com/ParaConUK/advtraj/tree/v0.2.0)
+## [v0.2.0](https://github.com/ParaConUK/cohobj/tree/v0.2.0)
 
-[Full Changelog](https://github.com/ParaConUK/advtraj/compare/v0.1.0...v0.2.0)
+[Full Changelog](https://github.com/ParaConUK/cohobj/compare/v0.1.0...v0.2.0)

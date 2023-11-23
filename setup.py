@@ -12,7 +12,7 @@ setup(
     # Needed for dependencies
     install_requires=['numpy', 'scipy', 'scikit-image', 'dask', 'xarray', 'loguru'],
     # *strongly* suggested for sharing
-    version='0.2.1',
+    version='0.3.0',
     # The license can be anything you like
     license='MIT',
     description='python code to help identify and use objects in 3D LES data.',

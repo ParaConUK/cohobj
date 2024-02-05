@@ -1,0 +1,389 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+    <title>The object_tools module. &#8212; cohobj 0.3.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinxdoc.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Introduction" href="intro.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="intro.html" title="Introduction"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">cohobj 0.3.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">The object_tools module.</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="the-object-tools-module">
+<h1>The object_tools module.<a class="headerlink" href="#the-object-tools-module" title="Permalink to this heading">¶</a></h1>
+<section id="detailed-module-contents">
+<h2>Detailed Module Contents<a class="headerlink" href="#detailed-module-contents" title="Permalink to this heading">¶</a></h2>
+<p>The entire module is documented below.</p>
+<span class="target" id="module-cohobj.object_tools"></span><p>object_tools module.</p>
+<p>&#64;author: Peter Clark</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="cohobj.object_tools.label_3D_cyclic">
+<span class="sig-prename descclassname"><span class="pre">cohobj.object_tools.</span></span><span class="sig-name descname"><span class="pre">label_3D_cyclic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mask</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fast_overlap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cohobj.object_tools.label_3D_cyclic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Label 3D objects taking account of cyclic boundary in x and y.</p>
+<p>Uses ndimage(label) as primary engine.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>mask</strong> (<em>xarray.DataArray bool</em>) – 3D logical array with object mask (i.e. objects are
+contiguous True).</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>labels : -1 denotes unlabelled.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>xr.DataArray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cohobj.object_tools.remap_labels">
+<span class="sig-prename descclassname"><span class="pre">cohobj.object_tools.</span></span><span class="sig-name descname"><span class="pre">remap_labels</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">labels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataArray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">label_index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataArray</span></span></span><a class="headerlink" href="#cohobj.object_tools.remap_labels" title="Permalink to this definition">¶</a></dt>
+<dd><p>Change labels to sequential integers.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>labels</strong> (<em>xr.DataArray</em>) – Array of integer labels.</p></li>
+<li><p><strong>label_index</strong> (<em>list</em><em>[</em><em>int</em><em>]</em>) – Inverse mapping - label_index[i] contains existing label, changed to i.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>labels : Array of integer labels.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>xr.DataArray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cohobj.object_tools.get_object_labels">
+<span class="sig-prename descclassname"><span class="pre">cohobj.object_tools.</span></span><span class="sig-name descname"><span class="pre">get_object_labels</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataArray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataArray</span></span></span><a class="headerlink" href="#cohobj.object_tools.get_object_labels" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert 3D logical mask to object labels corresponding to mask positions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>mask</strong> (<em>xr.DataArray</em>) – Evaluates True at required positions.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Data variables “object_labels”, counting from 0.
+Coordinates “pos_number” and any others (e.g. “time”) in mask.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>xr.DataArray (int32)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cohobj.object_tools.unsplit_objects">
+<span class="sig-prename descclassname"><span class="pre">cohobj.object_tools.</span></span><span class="sig-name descname"><span class="pre">unsplit_objects</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ds_traj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Lx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Ly</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dataset</span></span></span><a class="headerlink" href="#cohobj.object_tools.unsplit_objects" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unsplit a set of objects at a set of times using unsplit_object on each.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ds_traj</strong> (<em>xr.Dataset</em>) – Trajectory points “x”, “y”, and “z” and “object_label”.</p></li>
+<li><p><strong>Lx</strong> (<em>Domain size in x and y directions.</em>) – </p></li>
+<li><p><strong>Ly</strong> (<em>Domain size in x and y directions.</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Trajectory array with modified positions.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>xr.Dataset</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cohobj.object_tools.get_bounding_boxes">
+<span class="sig-prename descclassname"><span class="pre">cohobj.object_tools.</span></span><span class="sig-name descname"><span class="pre">get_bounding_boxes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ds_traj</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cohobj.object_tools.get_bounding_boxes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Find x,y,z min and max for objects in ds_traj.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ds_traj</strong> (<em>xarray.Dataset</em>) – Trajectory points “x”, “y”, “z”
+with additional non-dim coord “object_label” to groupby objects.
+and optional “object_mask” boolean data_var.</p></li>
+<li><p><strong>use_mask</strong> (<em>bool</em><em>, </em><em>optional</em>) – If true, only use points masked True by “object_mask”.
+The default is False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dataset with {x/y/z}_{min/max/mean} for objects.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>xarray.Dataset</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cohobj.object_tools.box_bounds">
+<span class="sig-prename descclassname"><span class="pre">cohobj.object_tools.</span></span><span class="sig-name descname"><span class="pre">box_bounds</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">b</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dataset</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Dataset</span></span></span><a class="headerlink" href="#cohobj.object_tools.box_bounds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Select object box boundaries from Dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>b</strong> (<em>xr.Dataset</em>) – Dataset containing box boundaries.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dataset containing just box boundaries.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>xr.Dataset</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cohobj.object_tools.box_xyz">
+<span class="sig-prename descclassname"><span class="pre">cohobj.object_tools.</span></span><span class="sig-name descname"><span class="pre">box_xyz</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">b</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cohobj.object_tools.box_xyz" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert object bounds to plottable x,y,z for a box.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>b</strong> (<em>xarray.Dataset</em>) – Contains {x/y/z}_{min/max}</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>x</strong> (<em>numpy array</em>) – x values for box.</p></li>
+<li><p><strong>y</strong> (<em>numpy array</em>) – y values for box.</p></li>
+<li><p><strong>z</strong> (<em>numpy array</em>) – z values for box.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cohobj.object_tools.box_overlap_with_wrap">
+<span class="sig-prename descclassname"><span class="pre">cohobj.object_tools.</span></span><span class="sig-name descname"><span class="pre">box_overlap_with_wrap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">b_test</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b_set</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ny</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cohobj.object_tools.box_overlap_with_wrap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute whether rectangular boxes intersect.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>b_test</strong> (<em>box for testing xarray.DataArray</em>) – </p></li>
+<li><p><strong>b_set</strong> (<em>set of boxes xarray.DataArray</em>) – </p></li>
+<li><p><strong>nx</strong> (<em>number of points in x grid.</em>) – </p></li>
+<li><p><strong>ny</strong> (<em>number of points in y grid.</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><em>set</em> – overlapping box ids</p></li>
+<li><p><strong>&#64;author</strong> (<em>Peter Clark</em>)</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cohobj.object_tools.refine_object_overlap_fast">
+<span class="sig-prename descclassname"><span class="pre">cohobj.object_tools.</span></span><span class="sig-name descname"><span class="pre">refine_object_overlap_fast</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tr1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tr2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ny</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cohobj.object_tools.refine_object_overlap_fast" title="Permalink to this definition">¶</a></dt>
+<dd><p>Estimate degree of overlap between two trajectory objects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tr1</strong> (<em>np.array</em>) – Trajectory data. [0:3,…] = [x, y, z] in grid points.</p></li>
+<li><p><strong>tr2</strong> (<em>np.array</em>) – Trajectory data. [0:3,…] = [x, y, z] in grid points.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Fractional overlap.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cohobj.object_tools.refine_object_overlap">
+<span class="sig-prename descclassname"><span class="pre">cohobj.object_tools.</span></span><span class="sig-name descname"><span class="pre">refine_object_overlap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tr1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tr2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cohobj.object_tools.refine_object_overlap" title="Permalink to this definition">¶</a></dt>
+<dd><p>Estimate degree of overlap between two trajectory objects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tr1</strong> (<em>xarray.Dataset</em>) – Trajectory Dataset.</p></li>
+<li><p><strong>tr2</strong> (<em>xarray.Dataset</em>) – Trajectory Dataset.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Fractional overlap.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cohobj.object_tools.tr_objects_to_numpy">
+<span class="sig-prename descclassname"><span class="pre">cohobj.object_tools.</span></span><span class="sig-name descname"><span class="pre">tr_objects_to_numpy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">to_gridpoint</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="headerlink" href="#cohobj.object_tools.tr_objects_to_numpy" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert trajectory data from xarray.Datset to dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tr</strong> (<em>xr.Dataset</em>) – Contains ‘x’, ‘y’, ‘z’ and ‘object_mask’ variables,
+‘time’ coordinate, ‘ref_time’ and ‘object_label’ non-dimensional
+coordinates.</p></li>
+<li><p><strong>to_gridpoint</strong> (<em>bool</em><em>, </em><em>optional</em>) – Convert physical units to grid points by dividing x by dx etc..
+The default is False.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p>‘xyz’: position data as numpy array [3, time, trajectory_number],</p></li>
+<li><p>’mask’: in-object mask as numpy bool array [time, trajectory_number] ,</p></li>
+<li><p>’object_label’: Object numbers as numpy array [trajectory_number],</p></li>
+<li><p>’nobjects’ : int number of objects,</p></li>
+<li><p>’ref_time’ : reference time,</p></li>
+<li><p>’time’ : time as 1D numpy array,</p></li>
+<li><p>’attrs’: tr.attrs,</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cohobj.object_tools.tr_data_at_time">
+<span class="sig-prename descclassname"><span class="pre">cohobj.object_tools.</span></span><span class="sig-name descname"><span class="pre">tr_data_at_time</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">traj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">req_time</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cohobj.object_tools.tr_data_at_time" title="Permalink to this definition">¶</a></dt>
+<dd><p>Select trajectory data at required time from dict format data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>traj</strong> (<em>dict</em>) – Trajectory data.</p></li>
+<li><p><strong>req_time</strong> (<em>float</em>) – Required time.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Output data. Format as per input but time dimension absent.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="cohobj.object_tools.tr_data_obj">
+<span class="sig-prename descclassname"><span class="pre">cohobj.object_tools.</span></span><span class="sig-name descname"><span class="pre">tr_data_obj</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">traj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iobj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#cohobj.object_tools.tr_data_obj" title="Permalink to this definition">¶</a></dt>
+<dd><p>Select trajectory data from required object from dict format data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>traj</strong> (<em>dict</em>) – Trajectory data.</p></li>
+<li><p><strong>iobj</strong> (<em>int</em>) – Required object.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Output data. Format as per input but just one object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">The object_tools module.</a><ul>
+<li><a class="reference internal" href="#detailed-module-contents">Detailed Module Contents</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="intro.html"
+                          title="previous chapter">Introduction</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/object_tools.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="intro.html" title="Introduction"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">cohobj 0.3.0 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">The object_tools module.</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2023 Peter Clark.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.0.2.
+    </div>
+  </body>
+</html>

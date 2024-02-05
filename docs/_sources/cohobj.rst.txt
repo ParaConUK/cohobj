@@ -1,0 +1,12 @@
+==========================
+The cohobj module.
+==========================
+
+Detailed Module Contents
+------------------------
+The entire module is documented below.
+
+.. automodule:: cohobj
+   :member-order: bysource
+   :members:
+ 

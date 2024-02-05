@@ -27,12 +27,8 @@ def label_3D_cyclic(mask, fast_overlap = False) :
 
     Returns
     -------
-        Object identifiers::
-
-            labs  : Integer array[nx,ny,nz] of labels. -1 denotes unlabelled.
-            nobjs : number of distinct objects. Labels range from 0 to nobjs-1.
-
-    @author: Peter Clark
+    xr.DataArray
+        labels : -1 denotes unlabelled.
 
     """
     
@@ -242,8 +238,8 @@ def remap_labels(labels: xr.DataArray, label_index: list[int])->xr.DataArray:
 
     Returns
     -------
-    labels : xr.DataArray
-        Array of integer labels.
+    xr.DataArray
+        labels : Array of integer labels.
 
     """
     logger.debug("Remapping labels")
@@ -265,8 +261,8 @@ def get_object_labels(mask: xr.DataArray)->xr.DataArray:
 
     Returns
     -------
-    object_labels : xr.DataArray (int32)
-        Contains data variables "object_labels", counting from 0.
+    xr.DataArray (int32)
+        Data variables "object_labels", counting from 0.
         Coordinates "pos_number" and any others (e.g. "time") in mask.
 
     """        
@@ -284,21 +280,20 @@ def get_object_labels(mask: xr.DataArray)->xr.DataArray:
             
     return olab
 
-def unsplit_objects(ds_traj, Lx=None, Ly=None) :
+def unsplit_objects(ds_traj, Lx=None, Ly=None)->xr.Dataset :
     """
     Unsplit a set of objects at a set of times using unsplit_object on each.
 
     Parameters
     ----------
-        ds_traj     : xarray dataset
+        ds_traj     : xr.Dataset
             Trajectory points "x", "y", and "z" and "object_label".
         Lx,Ly   : Domain size in x and y directions.
 
     Returns
     -------
+    xr.Dataset
         Trajectory array with modified positions.
-
-    @author: Peter Clark
 
     """
     nobjects = ds_traj["object_label"].attrs["nobjects"]
@@ -370,8 +365,8 @@ def get_bounding_boxes(ds_traj, use_mask=False):
 
     Returns
     -------
-    ds_out : xarray.Dataset
-        Contains {x/y/z}_{min/max/mean}
+    xarray.Dataset
+        Dataset with {x/y/z}_{min/max/mean} for objects.
 
     """
     
@@ -405,7 +400,7 @@ def box_bounds(b:xr.Dataset)->xr.Dataset:
 
     Returns
     -------
-    box : xr.Dataset
+    xr.Dataset
         Dataset containing just box boundaries.
 
     """
@@ -501,6 +496,7 @@ def box_overlap_with_wrap(b_test, b_set, nx, ny) :
 
     Returns
     -------
+    set
         overlapping box ids
 
     @author: Peter Clark
@@ -627,14 +623,14 @@ def tr_objects_to_numpy(tr: xr.Dataset, to_gridpoint:bool = False) -> dict:
 
     Returns
     -------
-    dict
-        'xyz': position data as numpy array [3, time, trajectory_number],
-        'mask': in-object mask as numpy bool array [time, trajectory_number] ,
-        'object_label': Object numbers as numpy array [trajectory_number],
-        'nobjects' : int number of objects,
-        'ref_time' : reference time,
-        'time' : time as 1D numpy array,
-        'attrs': tr.attrs,
+    dict:
+        - 'xyz': position data as numpy array [3, time, trajectory_number],
+        - 'mask': in-object mask as numpy bool array [time, trajectory_number] ,
+        - 'object_label': Object numbers as numpy array [trajectory_number],
+        - 'nobjects' : int number of objects,
+        - 'ref_time' : reference time,
+        - 'time' : time as 1D numpy array,
+        - 'attrs': tr.attrs,
 
     """
 
@@ -719,8 +715,6 @@ def tr_data_obj(traj:dict, iobj:int):
     -------
     dict
         Output data. Format as per input but just one object.
-
-        DESCRIPTION.
 
     """
 

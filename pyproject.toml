@@ -1,0 +1,36 @@
+[build-system]
+# XXX: If your project needs other packages to build properly, add them to this list.
+requires = ["setuptools >= 64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cohobj"
+dynamic = ["version"]
+authors = [
+  { name='Peter Clark', email='p.clark@reading.ac.uk'},
+]
+description = "Tools for deling with objects in 3D LES data."
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = "MIT"
+dependencies = [
+    "numpy",
+    "scipy",
+    "xarray",
+    "netCDF4",
+    "scikit-image", 
+    "loguru",
+     ]	
+[tool.setuptools.packages.find]
+where = ["src/"]
+
+[project.urls]
+Homepage = "https://github.com/ParaConUK/cohobj"
+Issues = "https://github.com/ParaConUK/cohobj/issues"
+
+
+[tool.setuptools_scm]

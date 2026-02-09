@@ -273,8 +273,13 @@ def get_object_labels(mask: xr.DataArray)->xr.DataArray:
                  .stack(pos_number=("x", "y", "z"))
                  .dropna(dim="pos_number")
            )
+    
+    pos_number = np.arange(olab.pos_number.size)
+    
+    # olab = olab.reset_index(["pos_number", "x", "y", "z"])
+    olab = olab.drop_vars(["pos_number", "x", "y", "z"])
 
-    olab = ( olab.assign_coords(pos_number=np.arange(olab.pos_number.size))
+    olab = ( olab.assign_coords(pos_number=pos_number)
                  .astype(int)
            )
             
@@ -305,7 +310,7 @@ def unsplit_objects(ds_traj, Lx=None, Ly=None)->xr.Dataset :
 
     logger.debug('Unsplitting Objects:')
     
-    def _unsplit_object(tr):
+    def _unsplit_object(v):
         """
         Gather together points in object separated by cyclic boundaries.
 
@@ -319,33 +324,35 @@ def unsplit_objects(ds_traj, Lx=None, Ly=None)->xr.Dataset :
 
         Parameters
         ----------
-            tr      : xr.Dataset
+            v      : xr.Dataset
                 Trajectory points belonging to object.
 
         Returns
         -------
-            tr      : xr.Dataset
+            v      : xr.Dataset
                 Adjusted trajectory points in object.
 
         @author: Peter Clark
 
         """
 
-        L = (Lx, Ly)
-        for it in range(0, ds_traj["time"].size) :
-            for idim, dim in enumerate('xy'):
-                v = tr[dim].isel(time=it)
-                if v.max() - v.min() > L[idim]/2: 
-                    q0 = v < L[idim] * 0.25
-                    q3 = v > L[idim] * 0.75
-                    if q0.sum() < q3.sum():
-                        tr[dim].isel(time=it)[q0] += L[idim]
-                    else:
-                        tr[dim].isel(time=it)[q3] -= L[idim]
+        if v.max() - v.min() > L[idim]/2: 
+            q0 = v < L[idim] * 0.25
+            q3 = v > L[idim] * 0.75
+            if q0.sum() < q3.sum():
+                v[q0] += L[idim]
+            else:
+                v[q3] -= L[idim]
                     
-        return tr
+        return v
     
-    ds_traj = ds_traj.groupby("object_label").map(_unsplit_object)
+    L = (Lx, Ly)
+    for it in range(0, ds_traj["time"].size) :
+        tr_time = ds_traj["time"].isel(time=it)
+        for idim, dim in enumerate('xy'):
+            v = ds_traj[dim].isel(time=it)
+            v1 = v.groupby("object_label").map(_unsplit_object)
+            ds_traj[dim].loc[{'time':tr_time}] = v1
         
     return ds_traj
 

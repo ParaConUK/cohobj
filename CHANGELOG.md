@@ -2,7 +2,11 @@
 
 ## [Unreleased](https://github.com/ParaConUK/cohobj/tree/HEAD)
 
-[Full Changelog](https://github.com/ParaConUK/cohobj/compare/v0.3.0...HEAD)
+[Full Changelog](https://github.com/ParaConUK/cohobj/compare/v0.3.1...HEAD)
+
+## [v0.3.1](https://github.com/ParaConUK/cohobj/tree/v0.3.1)
+
+[Full Changelog](https://github.com/ParaConUK/cohobj/compare/v0.3.0...v0.3.1)
 
 ## [v0.3.0](https://github.com/ParaConUK/cohobj/tree/v0.3.0)
 

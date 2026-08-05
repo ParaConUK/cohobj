@@ -7,111 +7,124 @@ import numpy as np
 import xarray as xr
 from scipy import ndimage
 import skimage.measure as skm
-import pandas as pd
+# import pandas as pd
 
 from loguru import logger
 
 use_scikit = True
 
-def label_3D_cyclic(mask, fast_overlap = False) :
-    """
-    Label 3D objects taking account of cyclic boundary in x and y.
-
-    Uses ndimage(label) as primary engine.
-
-    Parameters
-    ----------
-        mask: xarray.DataArray bool
-            3D logical array with object mask (i.e. objects are
-            contiguous True).
-
-    Returns
-    -------
-    xr.DataArray
-        labels : -1 denotes unlabelled.
-
-    """
+def get_obj_bounds_scikit(labs, nobjs):
+    logger.debug(
+        "Getting object bounds using scikit.measure.regionprops_table.")
     
-    def get_obj_bounds_scikit(labs, nobjs):
-        logger.debug(
-            "Getting object bounds using scikit.measure.regionprops_table.")
-        
-        obj_bounds = np.zeros([nobjs, 3, 2], dtype=int)
+    obj_bounds = np.zeros([nobjs, 3, 2], dtype=int)
+            
+    props2 = skm.regionprops_table(labs, properties=['bbox'])
+    for idim in range(3):
+        obj_bounds[:, idim, 0] = props2[f'bbox-{idim}']
+        obj_bounds[:, idim, 1] = props2[f'bbox-{3+idim}'] - 1             
+                                
+    return obj_bounds
+
+def get_obj_bounds(labs, nobjs):
+    logger.debug("Getting object bounds.")
+    
+    obj_bounds = np.zeros([nobjs, 3, 2], dtype=int)
                 
-        props2 = skm.regionprops_table(labs, properties=['bbox'])
+    for iobj in range(nobjs):
+        posi = np.where(labs == iobj)
         for idim in range(3):
-            obj_bounds[:, idim, 0] = props2[f'bbox-{idim}']
-            obj_bounds[:, idim, 1] = props2[f'bbox-{3+idim}'] - 1             
-                                    
-        return obj_bounds
+            posid = posi[idim]
+            obj_bounds[iobj, idim, 0] = np.min(posid)
+            obj_bounds[iobj, idim, 1] = np.max(posid)
+            
+    return obj_bounds
 
-    def get_obj_bounds(labs, nobjs):
-        logger.debug("Getting object bounds.")
-        
-        obj_bounds = np.zeros([nobjs, 3, 2], dtype=int)
-                    
-        for iobj in range(nobjs):
-            posi = np.where(labs == iobj)
-            for idim in range(3):
-                posid = posi[idim]
-                obj_bounds[iobj, idim, 0] = np.min(posid)
-                obj_bounds[iobj, idim, 1] = np.max(posid)
-                
-        return obj_bounds
+def relabel(labs, nobjs, bds, lab_index, i, j, new_bds) :
+    lj = (labs == lab_index[j])
+    labs[lj] = lab_index[i]
+    bds[lab_index[i], :, :] = new_bds
+    lab_index.pop(j)        
+    nobjs -= 1
+    return labs, nobjs, bds, lab_index
+
+
+
+def find_objects_at_edge(minflag, dim, n, labs, nobjs, bds, lab_index,
+                         grid_type=None, fast_overlap = False) :
+    logger.debug(f"Finding edge objects {minflag} {dim}.")
     
-    def relabel(labs, nobjs, bds, lab_index, i, j, new_bds) :
-        lj = (labs == lab_index[j])
-        labs[lj] = lab_index[i]
-        bds[lab_index[i], :, :] = new_bds
-        lab_index.pop(j)        
-        nobjs -= 1
-        return labs, nobjs, bds, lab_index
+    if grid_type is None: grid_type = 'xy_cyclic'
+    
+    polar = (grid_type == 'global' and dim == 1) 
 
-    def find_objects_at_edge(minflag, dim, n, labs, nobjs, bds, lab_index,
-                             fast_overlap = False) :
-        logger.debug(f"Finding edge objects {minflag} {dim}.")
+    i = 0
+    while i < (nobjs-2) :
+        ii = lab_index[i]
+        # grid point bounds corresponding to label i
+        posid = bds[ii, dim, :]
+        # Does object i have any points on the required border?
+        if minflag :
+            obj_i_on_border = (posid[0] == 0)
+            border = '0'
+        else:
+            obj_i_on_border = (posid[1] == (n[dim]-1))
+            border = f"n{['x','y'][dim]}-1"
+            
+        if obj_i_on_border :
+            logger.debug(f"Object {i:03d} on {['x','y'][dim]}={border} border?")
+                    
+            # If object i does have any points on the required border
+            # Loop over remaining objects to see if they have points
+            # on the opposite border
+            j = i+1
+            while j < nobjs :
+                jj = lab_index[j]
+                overlap = False
+                # grid point bounds corresponding to label j
+                posjd = bds[jj, dim, :]
 
-        i = 0
-        while i < (nobjs-2) :
-            ii = lab_index[i]
-            # grid point bunds corresponding to label i
-            posid = bds[ii, dim, :]
-            # Does object i have any points on the required border?
-            if minflag :
-                obj_i_on_border = (posid[0] == 0)
-                border = '0'
-            else:
-                obj_i_on_border = (posid[1] == (n-1))
-                border = f"n{['x','y'][dim]}-1"
-                
-            if obj_i_on_border :
-                logger.debug(f"Object {i:03d} on {['x','y'][dim]}={border} border?")
-                        
-                # If object i does have any points on the required border
-                # Loop over remaining objects to see if they have points
-                # on the opposite border
-                j = i+1
-                while j < nobjs :
-                    jj = lab_index[j]
-                    overlap = False
-                    # grid point bounds corresponding to label j
-                    posjd = bds[jj, dim, :]
+                if minflag :
+                    obj_j_on_opposite_border = (posjd[1] == (n[dim]-1))
+                    border = f"n{['x','y'][dim]}-1"
+                else:
+                    obj_j_on_opposite_border = (posjd[0] == 0)
+                    border = '0'
 
-                    if minflag :
-                        obj_j_on_opposite_border = (posjd[1] == (n-1))
-                        border = f"n{['x','y'][dim]}-1"
+                if obj_j_on_opposite_border :
+                    # If object i does have any points on the 
+                    # opposite border, then do they overlap in the
+                    # other horizontal coordinate space?
+
+                    logger.debug(f"Match Object {j:03d} on {['x','y'][dim]}={border} border?")
+
+                    overlap = True
+                    
+                    if polar:
+                        logger.debug('Overlap found!',i,j)
+                        new_bds = np.zeros([3, 2], dtype=int)
+                        for testdim in range(3):
+                            if minflag : 
+                                new_bds[0, 0] = min(bds[ii, 0, 0],
+                                                    bds[jj, 0, 1] - n[0] // 2)
+                                new_bds[0, 1] = max(bds[ii, 0, 0],
+                                                    bds[jj, 0, 0] + n[0] // 2)
+                                new_bds[1, 0] = -bds[jj, 1, 0]
+                                new_bds[1, 1] = -bds[ii, 1, 1]
+                            else:
+                                new_bds[0, 0] = min(bds[ii, 0, 0],
+                                                    bds[jj, 0, 1] - n[0] // 2)
+                                new_bds[0, 1] = max(bds[ii, 0, 0],
+                                                    bds[jj, 0, 0] + n[0] // 2)
+                                new_bds[1, 0] = bds[ii, 1, 0]
+                                new_bds[1, 1] = n[1] + bds[jj, 1, 1]
+                            new_bds[2, 0] = min(bds[ii, 2, 0],
+                                                bds[jj, 2, 0])
+                            new_bds[2, 1] = max(bds[ii, 2, 1],
+                                                bds[jj, 2, 1])
+                                            
                     else:
-                        obj_j_on_opposite_border = (posjd[0] == 0)
-                        border = '0'
-
-                    if obj_j_on_opposite_border :
-                        # If object i does have any points on the 
-                        # opposite border, then do they overlap in the
-                        # other horizontal coordinate space?
-
-                        logger.debug(f"Match Object {j:03d} on {['x','y'][dim]}={border} border?")
-
-                        overlap = True
+                       
                         for testdim in range(3):
                             if testdim == dim: continue
                             mini = bds[ii, testdim, 0]
@@ -143,7 +156,7 @@ def label_3D_cyclic(mask, fast_overlap = False) :
                             
                         # If any overlap, label object j as i and
                         # relabel the rest.
-
+    
                         if overlap:
                             logger.debug('Overlap found!',i,j)
                             new_bds = np.zeros([3, 2], dtype=int)
@@ -151,14 +164,14 @@ def label_3D_cyclic(mask, fast_overlap = False) :
                                 if testdim == dim:
                                     if minflag : 
                                         new_bds[testdim, 0] = \
-                                        bds[jj, testdim, 0] - n
+                                        bds[jj, testdim, 0] - n[dim]
                                         new_bds[testdim, 1] = \
                                         bds[ii, testdim, 1]
                                     else:
                                         new_bds[testdim, 0] = \
                                         bds[ii, testdim, 0]
                                         new_bds[testdim, 1] = \
-                                        bds[jj, testdim, 1] + n
+                                        bds[jj, testdim, 1] + n[dim]
                                 else:
                                     new_bds[testdim, 0] = min(
                                         bds[ii, testdim, 0],
@@ -166,19 +179,113 @@ def label_3D_cyclic(mask, fast_overlap = False) :
                                     new_bds[testdim, 1] = max(
                                         bds[ii, testdim, 1],
                                         bds[jj, testdim, 1])
-                            
-                            labs, nobjs, bds, lab_index = relabel(labs, 
-                                                                  nobjs, 
-                                                                  bds, 
-                                                                  lab_index, 
-                                                                  i, 
-                                                                  j, 
-                                                                  new_bds)
-                    # Catch case where consecutive js overlap.
-                    if not overlap:
-                        j += 1
-            i += 1
-        return labs, nobjs, bds, lab_index
+                        
+                    if overlap:
+                        (labs, 
+                         nobjs, 
+                         bds, 
+                         lab_index) = relabel(labs, 
+                                              nobjs, 
+                                              bds, 
+                                              lab_index, 
+                                              i, 
+                                              j, 
+                                              new_bds)
+                # Catch case where consecutive js overlap.
+                if not overlap:
+                    j += 1
+        i += 1
+    return labs, nobjs, bds, lab_index
+
+def label_3D_cyclic(mask, grid_type=None, fast_overlap = False) :
+    """
+    Label 3D objects taking account of cyclic boundary in x and y.
+
+    Uses ndimage(label) as primary engine.
+
+    Parameters
+    ----------
+        mask: xarray.DataArray bool
+            3D logical array with object mask (i.e. objects are
+            contiguous True).
+
+    Returns
+    -------
+    xr.DataArray
+        labels : -1 denotes unlabelled.
+
+    """
+    
+    if grid_type is None: grid_type = 'xy_cyclic'
+    
+    n = mask.shape
+    logger.debug("Finding labels.")
+    if use_scikit:
+        labels, nobjects = skm.label(mask, return_num=True, connectivity=1)
+        labels = labels.astype(np.int32)
+        
+        logger.debug("Found labels using scikit.measure.label.")
+        obj_bounds = get_obj_bounds_scikit(labels, nobjects)
+        labels -=1
+    else:
+        labels, nobjects = ndimage.label(mask)
+        logger.debug("Found labels using scipy.ndimage.label.")
+        labels -=1
+        obj_bounds = get_obj_bounds(labels, nobjects)
+    lab_index = list(range(nobjects))
+       
+    # Look at 4 boundary zones, i in [0, nx), j in [0, ny).
+    labels, nobjects, obj_bounds, lab_index = \
+        find_objects_at_edge(True,  0, n, labels, nobjects, 
+                             obj_bounds, lab_index, 
+                             grid_type=grid_type,
+                             fast_overlap=fast_overlap)
+    labels, nobjects, obj_bounds, lab_index = \
+        find_objects_at_edge(False, 0, n, labels, nobjects, 
+                             obj_bounds, lab_index, 
+                             grid_type=grid_type,
+                             fast_overlap=fast_overlap)
+        
+    labels, nobjects, obj_bounds, lab_index = \
+        find_objects_at_edge(True,  1, n, labels, nobjects, 
+                             obj_bounds, lab_index,
+                             grid_type=grid_type,
+                             fast_overlap=fast_overlap)
+    labels, nobjects, obj_bounds, lab_index = \
+        find_objects_at_edge(False, 1, n, labels, nobjects, 
+                             obj_bounds, lab_index, 
+                             grid_type=grid_type,
+                             fast_overlap=fast_overlap)
+        
+    labels = remap_labels(labels, lab_index)
+    
+    labels = xr.DataArray(labels, 
+                          name='object_labels', 
+                          coords=mask.coords, 
+                          dims=mask.dims,
+                          attrs={'nobjects':nobjects},
+                          )
+
+    return labels
+
+def label_3D_spherical(mask, fast_overlap = False) :
+    """
+    Label 3D objects taking account of cyclic boundary in x and pole at y.
+
+    Uses ndimage(label) as primary engine.
+
+    Parameters
+    ----------
+        mask: xarray.DataArray bool
+            3D logical array with object mask (i.e. objects are
+            contiguous True).
+
+    Returns
+    -------
+    xr.DataArray
+        labels : -1 denotes unlabelled.
+
+    """
     
     (nx, ny, nz) = mask.shape
     logger.debug("Finding labels.")
@@ -224,6 +331,8 @@ def label_3D_cyclic(mask, fast_overlap = False) :
                           )
 
     return labels
+
+
 
 def remap_labels(labels: xr.DataArray, label_index: list[int])->xr.DataArray:
     """
